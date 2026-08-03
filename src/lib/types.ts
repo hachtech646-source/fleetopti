@@ -21,12 +21,22 @@ export interface Vehicle {
   purchase_price: number | null
   current_odometer: number
   status: string
+  category: 'Small Vehicle' | 'Commercial' | 'Heavy Duty' | null
+  brand_series: string | null
   location: string | null
   insurance_expiry: string | null
   road_tax_expiry: string | null
   notes: string | null
   created_at: string
   updated_at: string
+}
+
+export interface VehicleBrand {
+  id: string
+  category: 'Small Vehicle' | 'Commercial' | 'Heavy Duty'
+  brand: string
+  series: string | null
+  created_at: string
 }
 
 export interface Role {
@@ -64,7 +74,8 @@ export interface MaintenanceRecord {
 
 export interface MaintenanceRecordWithVehicle extends MaintenanceRecord {
   vehicles: { id: string; fleet_number: string | null; make: string; model: string; registration_number: string } | null
-}export interface SparePartCategory {
+}
+export interface SparePartCategory {
   id: string
   category_name: string
   description: string | null
@@ -91,7 +102,16 @@ export interface SparePart {
 
 export interface SparePartWithCategory extends SparePart {
   spare_part_categories: { id: string; category_name: string } | null
-}export interface FuelRecord {
+  part_compatibility?: { vehicle_brands: VehicleBrand }[]
+}
+
+export interface PartCompatibility {
+  id: string
+  spare_part_id: string
+  vehicle_brand_id: string
+  created_at: string
+}
+export interface FuelRecord {
   id: string
   vehicle_id: string
   fuel_date: string
@@ -103,7 +123,8 @@ export interface SparePartWithCategory extends SparePart {
 
 export interface FuelRecordWithVehicle extends FuelRecord {
   vehicles: { id: string; fleet_number: string | null; make: string; model: string; registration_number: string } | null
-}export interface Driver {
+}
+export interface Driver {
   id: string
   full_name: string
   license_number: string

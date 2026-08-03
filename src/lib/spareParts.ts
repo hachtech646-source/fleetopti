@@ -4,11 +4,58 @@ import type { SparePart, SparePartWithCategory, SparePartCategory } from './type
 export async function getSpareParts(): Promise<SparePartWithCategory[]> {
   const { data, error } = await supabase
     .from('spare_parts')
-    .select('*, spare_part_categories(id, category_name)')
+    .select('*, spare_part_categories(id, category_name), part_compatibility(vehicle_brands(*))')
     .order('part_name', { ascending: true })
 
   if (error) throw error
   return data as SparePartWithCategory[]
+}
+
+// Search spare parts compatible with a given vehicle brand (optionally narrowed by series)
+export async function getPartsByVehicleBrand(
+  brand: string,
+  series?: string
+): Promise<SparePartWithCategory[]> {
+  let brandQuery = supabase.from('vehicle_brands').select('id').eq('brand', brand)
+  if (series) brandQuery = brandQuery.eq('series', series)
+
+  const { data: brands, error: brandError } = await brandQuery
+  if (brandError) throw brandError
+  if (!brands || brands.length === 0) return []
+
+  const brandIds = brands.map((b: { id: string }) => b.id)
+
+  const { data, error } = await supabase
+    .from('spare_parts')
+    .select('*, spare_part_categories(id, category_name), part_compatibility!inner(vehicle_brands(*))')
+    .in('part_compatibility.vehicle_brand_id', brandIds)
+    .order('part_name', { ascending: true })
+
+  if (error) throw error
+  return data as SparePartWithCategory[]
+}
+
+// Link a spare part to one or more compatible vehicle brands/series
+export async function setPartCompatibility(
+  sparePartId: string,
+  vehicleBrandIds: string[]
+): Promise<void> {
+  const { error: deleteError } = await supabase
+    .from('part_compatibility')
+    .delete()
+    .eq('spare_part_id', sparePartId)
+
+  if (deleteError) throw deleteError
+
+  if (vehicleBrandIds.length === 0) return
+
+  const rows = vehicleBrandIds.map((vehicle_brand_id) => ({
+    spare_part_id: sparePartId,
+    vehicle_brand_id,
+  }))
+
+  const { error: insertError } = await supabase.from('part_compatibility').insert(rows)
+  if (insertError) throw insertError
 }
 
 export async function getSparePartCategories(): Promise<SparePartCategory[]> {
