@@ -6,6 +6,10 @@ import {
   getLowStockAlerts,
   getTotalFuelCost,
   getExpiringLicenses,
+  getUpcomingMaintenance,
+  getVehiclesNeedingService,
+  getRecentMaintenance,
+  getPartsUsedThisMonth,
 } from '@/lib/reports'
 import {
   exportMonthlyReport,
@@ -22,6 +26,10 @@ export default function DashboardPage() {
   const [lowStock, setLowStock] = useState<LowStockAlert[]>([])
   const [totalFuelCost, setTotalFuelCost] = useState(0)
   const [expiringLicenses, setExpiringLicenses] = useState<DriverWithVehicle[]>([])
+  const [upcomingMaintenance, setUpcomingMaintenance] = useState<any[]>([])
+  const [vehiclesNeedingService, setVehiclesNeedingService] = useState<any[]>([])
+  const [recentMaintenance, setRecentMaintenance] = useState<any[]>([])
+  const [partsUsedThisMonth, setPartsUsedThisMonth] = useState(0)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
 
@@ -33,16 +41,33 @@ export default function DashboardPage() {
     async function load() {
       setLoading(true)
       try {
-        const [summaryData, lowStockData, fuelCost, licenses] = await Promise.all([
+        const [
+          summaryData,
+          lowStockData,
+          fuelCost,
+          licenses,
+          upcoming,
+          needingService,
+          recentMaint,
+          partsUsed,
+        ] = await Promise.all([
           getDashboardSummary(),
           getLowStockAlerts(),
           getTotalFuelCost(),
           getExpiringLicenses(),
+          getUpcomingMaintenance(),
+          getVehiclesNeedingService(),
+          getRecentMaintenance(5),
+          getPartsUsedThisMonth(),
         ])
         setSummary(summaryData)
         setLowStock(lowStockData)
         setTotalFuelCost(fuelCost)
         setExpiringLicenses(licenses)
+        setUpcomingMaintenance(upcoming.slice(0, 5))
+        setVehiclesNeedingService(needingService)
+        setRecentMaintenance(recentMaint)
+        setPartsUsedThisMonth(partsUsed)
       } catch (err) {
         setError(err instanceof Error ? err.message : 'Failed to load dashboard')
       } finally {
@@ -86,6 +111,11 @@ export default function DashboardPage() {
     cursor: 'pointer',
   }
 
+  const staticCardStyle: React.CSSProperties = {
+    ...cardStyle,
+    cursor: 'default',
+  }
+
   return (
     <div style={{ maxWidth: 950, margin: '2rem auto', fontFamily: 'sans-serif' }}>
       <h1>FleetOpti — Dashboard</h1>
@@ -123,7 +153,7 @@ export default function DashboardPage() {
         Tip: click any card below to download a focused report for that category.
       </p>
 
-      <div style={{ display: 'flex', gap: '1rem', flexWrap: 'wrap', marginBottom: '2rem' }}>
+      <div style={{ display: 'flex', gap: '1rem', flexWrap: 'wrap', marginBottom: '1rem' }}>
         <div style={cardStyle} onClick={() => handleCardClick(exportTotalVehicles, 'Total Vehicles')} title="Click to export all vehicles">
           <div style={{ fontSize: '1.8rem', fontWeight: 'bold' }}>{summary?.total_vehicles ?? 0}</div>
           <div>Total Vehicles</div>
@@ -131,6 +161,12 @@ export default function DashboardPage() {
         <div style={cardStyle} onClick={() => handleCardClick(exportActiveVehicles, 'Active Vehicles')} title="Click to export active vehicles">
           <div style={{ fontSize: '1.8rem', fontWeight: 'bold' }}>{summary?.active_vehicles ?? 0}</div>
           <div>Active Vehicles</div>
+        </div>
+        <div style={staticCardStyle} title="Vehicles with an overdue next service date">
+          <div style={{ fontSize: '1.8rem', fontWeight: 'bold', color: vehiclesNeedingService.length > 0 ? '#c0392b' : undefined }}>
+            {vehiclesNeedingService.length}
+          </div>
+          <div>Vehicles Needing Service</div>
         </div>
         <div style={cardStyle} onClick={() => handleCardClick(exportAllStock, 'Total Parts / Stock')} title="Click to export stock report">
           <div style={{ fontSize: '1.8rem', fontWeight: 'bold' }}>{summary?.total_parts ?? 0}</div>
@@ -148,7 +184,85 @@ export default function DashboardPage() {
           <div style={{ fontSize: '1.8rem', fontWeight: 'bold' }}>{totalFuelCost}</div>
           <div>Total Fuel Cost</div>
         </div>
+        <div style={staticCardStyle} title="Maintenance jobs this month with parts cost logged">
+          <div style={{ fontSize: '1.8rem', fontWeight: 'bold' }}>{partsUsedThisMonth}</div>
+          <div>Parts Used (This Month)</div>
+        </div>
       </div>
+
+      <h2>Vehicles Needing Service</h2>
+      {vehiclesNeedingService.length === 0 ? (
+        <p>No vehicles are currently overdue for service.</p>
+      ) : (
+        <table style={{ width: '100%', borderCollapse: 'collapse', marginBottom: '2rem' }}>
+          <thead>
+            <tr style={{ textAlign: 'left', borderBottom: '2px solid #333' }}>
+              <th>Vehicle</th>
+              <th>Next Service Date</th>
+            </tr>
+          </thead>
+          <tbody>
+            {vehiclesNeedingService.map((v: any) => (
+              <tr key={v.vehicle_id} style={{ borderBottom: '1px solid #eee', backgroundColor: '#fff3f3' }}>
+                <td>{v.vehicles ? (v.vehicles.fleet_number || v.vehicles.registration_number) + ' — ' + v.vehicles.make + ' ' + v.vehicles.model : 'Unknown'}</td>
+                <td>{v.next_service_date}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      )}
+
+      <h2>Upcoming Services</h2>
+      {upcomingMaintenance.length === 0 ? (
+        <p>No upcoming services scheduled.</p>
+      ) : (
+        <table style={{ width: '100%', borderCollapse: 'collapse', marginBottom: '2rem' }}>
+          <thead>
+            <tr style={{ textAlign: 'left', borderBottom: '2px solid #333' }}>
+              <th>Vehicle</th>
+              <th>Next Service Date</th>
+              <th>Next Service Odometer</th>
+            </tr>
+          </thead>
+          <tbody>
+            {upcomingMaintenance.map((m: any, i: number) => (
+              <tr key={i} style={{ borderBottom: '1px solid #eee' }}>
+                <td>{m.vehicles ? (m.vehicles.fleet_number || m.vehicles.registration_number) + ' — ' + m.vehicles.make + ' ' + m.vehicles.model : 'Unknown'}</td>
+                <td>{m.next_service_date ?? '-'}</td>
+                <td>{m.next_service_odometer ?? '-'}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      )}
+
+      <h2>Recent Maintenance</h2>
+      {recentMaintenance.length === 0 ? (
+        <p>No maintenance records yet.</p>
+      ) : (
+        <table style={{ width: '100%', borderCollapse: 'collapse', marginBottom: '2rem' }}>
+          <thead>
+            <tr style={{ textAlign: 'left', borderBottom: '2px solid #333' }}>
+              <th>Vehicle</th>
+              <th>Service Type</th>
+              <th>Date</th>
+              <th>Total Cost</th>
+              <th>Status</th>
+            </tr>
+          </thead>
+          <tbody>
+            {recentMaintenance.map((m: any) => (
+              <tr key={m.id} style={{ borderBottom: '1px solid #eee' }}>
+                <td>{m.vehicles ? (m.vehicles.fleet_number || m.vehicles.registration_number) + ' — ' + m.vehicles.make + ' ' + m.vehicles.model : 'Unknown'}</td>
+                <td>{m.service_type}</td>
+                <td>{m.service_date}</td>
+                <td>{m.total_cost}</td>
+                <td>{m.status}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      )}
 
       <h2>Low Stock Alerts</h2>
       {lowStock.length === 0 ? (

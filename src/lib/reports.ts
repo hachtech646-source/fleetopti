@@ -91,3 +91,53 @@ export async function getAllFuelRecordsFull() {
   if (error) throw error
   return data
 }
+export async function getVehiclesNeedingService() {
+  const today = new Date().toISOString().split('T')[0]
+
+  const { data, error } = await supabase
+    .from('maintenance_records')
+    .select('vehicle_id, next_service_date, vehicles(id, fleet_number, make, model, registration_number)')
+    .not('next_service_date', 'is', null)
+    .lte('next_service_date', today)
+    .order('next_service_date', { ascending: true })
+
+  if (error) throw error
+
+  // Dedupe by vehicle in case a vehicle has multiple overdue records
+  const seen = new Set()
+  const unique = (data || []).filter((r: any) => {
+    if (seen.has(r.vehicle_id)) return false
+    seen.add(r.vehicle_id)
+    return true
+  })
+
+  return unique
+}
+
+export async function getRecentMaintenance(limit = 5) {
+  const { data, error } = await supabase
+    .from('maintenance_records')
+    .select('*, vehicles(id, fleet_number, make, model, registration_number)')
+    .order('service_date', { ascending: false })
+    .limit(limit)
+
+  if (error) throw error
+  return data
+}
+
+export async function getPartsUsedThisMonth() {
+  const now = new Date()
+  const start = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-01`
+  const endDate = new Date(now.getFullYear(), now.getMonth() + 1, 0).getDate()
+  const end = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${endDate}`
+
+  const { data, error } = await supabase
+    .from('maintenance_records')
+    .select('id, parts_cost')
+    .gte('service_date', start)
+    .lte('service_date', end)
+    .gt('parts_cost', 0)
+
+  if (error) throw error
+  return data.length
+}
