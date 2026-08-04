@@ -1,19 +1,10 @@
 'use client'
 
 import { useEffect, useState } from 'react'
-import { getVehicles, createVehicle, deleteVehicle } from '@/lib/vehicles'
-import type { Vehicle } from '@/lib/types'
+import { getVehicles, createVehicle, deleteVehicle, getVehicleBrands } from '@/lib/vehicles'
+import type { Vehicle, VehicleBrand } from '@/lib/types'
 
-const PRESET_VEHICLES = [
-  'Toyota',
-  'Scania R Series',
-  'Scania P Series',
-  'Scania G Series',
-  'Howo 371',
-  'Howo 380',
-  'Howo N7',
-  'Custom',
-]
+const CATEGORIES = ['Small Vehicle', 'Commercial', 'Heavy Duty'] as const
 
 export default function VehiclesPage() {
   const [vehicles, setVehicles] = useState<Vehicle[]>([])
@@ -21,7 +12,9 @@ export default function VehiclesPage() {
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState('')
 
-  const [preset, setPreset] = useState(PRESET_VEHICLES[0])
+  const [category, setCategory] = useState<string>(CATEGORIES[0])
+  const [brands, setBrands] = useState<VehicleBrand[]>([])
+  const [brandId, setBrandId] = useState<string>('')
   const [customMake, setCustomMake] = useState('')
   const [model, setModel] = useState('')
   const [fleetNumber, setFleetNumber] = useState('')
@@ -39,17 +32,38 @@ export default function VehiclesPage() {
     }
   }
 
+  async function loadBrands(cat: string) {
+    try {
+      const data = await getVehicleBrands(cat)
+      setBrands(data)
+      setBrandId(data.length > 0 ? data[0].id : '')
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to load vehicle brands')
+    }
+  }
+
   useEffect(() => {
     loadVehicles()
+    loadBrands(CATEGORIES[0])
   }, [])
+
+  function handleCategoryChange(cat: string) {
+    setCategory(cat)
+    setBrandId('')
+    setCustomMake('')
+    loadBrands(cat)
+  }
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
     setError('')
 
-    const make = preset === 'Custom' ? customMake.trim() : preset
+    const selectedBrand = brands.find((b) => b.id === brandId)
+    const make = brandId === 'custom' ? customMake.trim() : selectedBrand?.brand || ''
+    const brandSeries = brandId === 'custom' ? undefined : selectedBrand?.series || undefined
+
     if (!make || !registrationNumber.trim()) {
-      setError('Make and registration number are required.')
+      setError('Make/brand and registration number are required.')
       return
     }
 
@@ -60,8 +74,10 @@ export default function VehiclesPage() {
         model: model.trim() || '-',
         registration_number: registrationNumber.trim(),
         fleet_number: fleetNumber.trim() || undefined,
+        category,
+        brand_series: brandSeries,
       })
-      setPreset(PRESET_VEHICLES[0])
+      setBrandId(brands.length > 0 ? brands[0].id : '')
       setCustomMake('')
       setModel('')
       setFleetNumber('')
@@ -92,15 +108,25 @@ export default function VehiclesPage() {
         <h2>Add Vehicle</h2>
 
         <div style={{ marginBottom: '0.5rem' }}>
-          <label>Make / Type: </label>
-          <select value={preset} onChange={(e) => setPreset(e.target.value)}>
-            {PRESET_VEHICLES.map((p) => (
-              <option key={p} value={p}>{p}</option>
+          <label>Category: </label>
+          <select value={category} onChange={(e) => handleCategoryChange(e.target.value)}>
+            {CATEGORIES.map((c) => (
+              <option key={c} value={c}>{c}</option>
             ))}
           </select>
         </div>
 
-        {preset === 'Custom' && (
+        <div style={{ marginBottom: '0.5rem' }}>
+          <label>Brand{brands.some((b) => b.series) ? ' / Series' : ''}: </label>
+          <select value={brandId} onChange={(e) => setBrandId(e.target.value)}>
+            {brands.map((b) => (
+              <option key={b.id} value={b.id}>{b.brand}{b.series ? ` — ${b.series}` : ''}</option>
+            ))}
+            <option value="custom">Other / Custom</option>
+          </select>
+        </div>
+
+        {brandId === 'custom' && (
           <div style={{ marginBottom: '0.5rem' }}>
             <label>Custom make: </label>
             <input value={customMake} onChange={(e) => setCustomMake(e.target.value)} placeholder="e.g. Isuzu FRR" />
@@ -139,7 +165,9 @@ export default function VehiclesPage() {
           <thead>
             <tr style={{ textAlign: 'left', borderBottom: '2px solid #333' }}>
               <th>Fleet #</th>
+              <th>Category</th>
               <th>Make</th>
+              <th>Series</th>
               <th>Model</th>
               <th>Reg. No.</th>
               <th>Status</th>
@@ -150,7 +178,9 @@ export default function VehiclesPage() {
             {vehicles.map((v) => (
               <tr key={v.id} style={{ borderBottom: '1px solid #eee' }}>
                 <td>{v.fleet_number || '-'}</td>
+                <td>{v.category || '-'}</td>
                 <td>{v.make}</td>
+                <td>{v.brand_series || '-'}</td>
                 <td>{v.model}</td>
                 <td>{v.registration_number}</td>
                 <td>{v.status}</td>

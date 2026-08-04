@@ -1,12 +1,14 @@
 'use client'
 
 import { useEffect, useState } from 'react'
-import { getSpareParts, getSparePartCategories, createSparePart, deleteSparePart } from '@/lib/spareParts'
-import type { SparePartWithCategory, SparePartCategory } from '@/lib/types'
+import { getSpareParts, getSparePartCategories, createSparePart, deleteSparePart, setPartCompatibility } from '@/lib/spareParts'
+import { getVehicleBrands } from '@/lib/vehicles'
+import type { SparePartWithCategory, SparePartCategory, VehicleBrand } from '@/lib/types'
 
 export default function SparePartsPage() {
   const [parts, setParts] = useState<SparePartWithCategory[]>([])
   const [categories, setCategories] = useState<SparePartCategory[]>([])
+  const [vehicleBrands, setVehicleBrands] = useState<VehicleBrand[]>([])
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState('')
@@ -22,16 +24,19 @@ export default function SparePartsPage() {
   const [stockQuantity, setStockQuantity] = useState('')
   const [minimumStock, setMinimumStock] = useState('')
   const [storageLocation, setStorageLocation] = useState('')
+  const [selectedBrandIds, setSelectedBrandIds] = useState<string[]>([])
 
   async function loadAll() {
     setLoading(true)
     try {
-      const [partsData, categoriesData] = await Promise.all([
+      const [partsData, categoriesData, brandsData] = await Promise.all([
         getSpareParts(),
         getSparePartCategories(),
+        getVehicleBrands(),
       ])
       setParts(partsData)
       setCategories(categoriesData)
+      setVehicleBrands(brandsData)
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to load data')
     } finally {
@@ -42,6 +47,12 @@ export default function SparePartsPage() {
   useEffect(() => {
     loadAll()
   }, [])
+
+  function toggleBrand(id: string) {
+    setSelectedBrandIds((prev) =>
+      prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]
+    )
+  }
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
@@ -54,7 +65,7 @@ export default function SparePartsPage() {
 
     setSaving(true)
     try {
-      await createSparePart({
+      const newPart = await createSparePart({
         part_code: partCode.trim(),
         part_name: partName.trim(),
         category_id: categoryId || undefined,
@@ -68,6 +79,10 @@ export default function SparePartsPage() {
         storage_location: storageLocation.trim() || undefined,
       })
 
+      if (selectedBrandIds.length > 0) {
+        await setPartCompatibility(newPart.id, selectedBrandIds)
+      }
+
       setPartCode('')
       setPartName('')
       setCategoryId('')
@@ -79,6 +94,7 @@ export default function SparePartsPage() {
       setStockQuantity('')
       setMinimumStock('')
       setStorageLocation('')
+      setSelectedBrandIds([])
       await loadAll()
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to save spare part')
@@ -130,8 +146,28 @@ export default function SparePartsPage() {
         </div>
 
         <div style={{ marginBottom: '0.5rem' }}>
-          <label>Compatible vehicle: </label>
+          <label>Compatible vehicle (free text note): </label>
           <input value={compatibleVehicle} onChange={(e) => setCompatibleVehicle(e.target.value)} placeholder="e.g. Scania R Series" />
+        </div>
+
+        <div style={{ marginBottom: '0.5rem' }}>
+          <label>Compatible vehicle brands (searchable): </label>
+          <div style={{ border: '1px solid #ddd', borderRadius: 6, padding: '0.5rem', maxHeight: 160, overflowY: 'auto' }}>
+            {vehicleBrands.length === 0 ? (
+              <p style={{ margin: 0, color: '#888' }}>No vehicle brands found.</p>
+            ) : (
+              vehicleBrands.map((vb) => (
+                <label key={vb.id} style={{ display: 'block', fontSize: '0.9rem', marginBottom: 2 }}>
+                  <input
+                    type="checkbox"
+                    checked={selectedBrandIds.includes(vb.id)}
+                    onChange={() => toggleBrand(vb.id)}
+                  />
+                  {' '}{vb.category} — {vb.brand}{vb.series ? ` (${vb.series})` : ''}
+                </label>
+              ))
+            )}
+          </div>
         </div>
 
         <div style={{ marginBottom: '0.5rem' }}>
@@ -183,6 +219,7 @@ export default function SparePartsPage() {
               <th>Code</th>
               <th>Name</th>
               <th>Category</th>
+              <th>Compatible Brands</th>
               <th>Stock</th>
               <th>Min</th>
               <th>Cost</th>
@@ -202,6 +239,11 @@ export default function SparePartsPage() {
                 <td>{p.part_code}</td>
                 <td>{p.part_name}</td>
                 <td>{p.spare_part_categories?.category_name || '-'}</td>
+                <td>
+                  {p.part_compatibility && p.part_compatibility.length > 0
+                    ? p.part_compatibility.map((pc) => pc.vehicle_brands.brand + (pc.vehicle_brands.series ? ` (${pc.vehicle_brands.series})` : '')).join(', ')
+                    : '-'}
+                </td>
                 <td>{p.stock_quantity}</td>
                 <td>{p.minimum_stock}</td>
                 <td>{p.cost_price}</td>

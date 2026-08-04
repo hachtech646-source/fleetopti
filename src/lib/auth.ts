@@ -5,7 +5,8 @@ export async function signUp(
   password: string,
   fullName: string,
   roleId: string,
-  phone?: string
+  phone?: string,
+  companyName?: string
 ) {
   const { data: authData, error: authError } = await supabase.auth.signUp({
     email,
@@ -15,9 +16,11 @@ export async function signUp(
         full_name: fullName,
         phone: phone || null,
         role_id: roleId,
+        company_name: companyName || null,
       },
     },
   })
+
   if (authError) throw authError
   if (!authData.user) throw new Error('Signup failed — no user returned.')
 
