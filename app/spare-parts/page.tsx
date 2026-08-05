@@ -115,7 +115,7 @@ export default function SparePartsPage() {
 
   return (
     <div style={{ maxWidth: 800, margin: '2rem auto', fontFamily: 'sans-serif' }}>
-      <h1>FleetOpti â€” Spare Parts</h1>
+      <h1>FleetOpti — Spare Parts</h1>
 
       <form onSubmit={handleSubmit} style={{ marginBottom: '2rem', border: '1px solid #ccc', padding: '1rem', borderRadius: 8 }}>
         <h2>Add Spare Part</h2>
@@ -163,7 +163,7 @@ export default function SparePartsPage() {
                     checked={selectedBrandIds.includes(vb.id)}
                     onChange={() => toggleBrand(vb.id)}
                   />
-                  {' '}{vb.category} â€” {vb.brand}{vb.series ? ` (${vb.series})` : ''}
+                  {' '}{vb.category} - {vb.brand}{vb.series ? ` (${vb.series})` : ''}
                 </label>
               ))
             )}
@@ -261,4 +261,3 @@ export default function SparePartsPage() {
     </div>
   )
 }
-
