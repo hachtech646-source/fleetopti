@@ -1,4 +1,4 @@
-'use client'
+﻿'use client'
 
 import { useEffect, useState } from 'react'
 import { getSpareParts, getSparePartCategories, createSparePart, deleteSparePart, setPartCompatibility } from '@/lib/spareParts'
@@ -115,7 +115,7 @@ export default function SparePartsPage() {
 
   return (
     <div style={{ maxWidth: 800, margin: '2rem auto', fontFamily: 'sans-serif' }}>
-      <h1>FleetOpti — Spare Parts</h1>
+      <h1>FleetOpti â€” Spare Parts</h1>
 
       <form onSubmit={handleSubmit} style={{ marginBottom: '2rem', border: '1px solid #ccc', padding: '1rem', borderRadius: 8 }}>
         <h2>Add Spare Part</h2>
@@ -163,7 +163,7 @@ export default function SparePartsPage() {
                     checked={selectedBrandIds.includes(vb.id)}
                     onChange={() => toggleBrand(vb.id)}
                   />
-                  {' '}{vb.category} — {vb.brand}{vb.series ? ` (${vb.series})` : ''}
+                  {' '}{vb.category} â€” {vb.brand}{vb.series ? ` (${vb.series})` : ''}
                 </label>
               ))
             )}
@@ -222,6 +222,7 @@ export default function SparePartsPage() {
               <th>Compatible Brands</th>
               <th>Stock</th>
               <th>Min</th>
+              <th>Location</th>
               <th>Cost</th>
               <th>Sell</th>
               <th></th>
@@ -246,6 +247,7 @@ export default function SparePartsPage() {
                 </td>
                 <td>{p.stock_quantity}</td>
                 <td>{p.minimum_stock}</td>
+                <td>{p.storage_location || '-'}</td>
                 <td>{p.cost_price}</td>
                 <td>{p.selling_price}</td>
                 <td>
@@ -259,3 +261,4 @@ export default function SparePartsPage() {
     </div>
   )
 }
+
