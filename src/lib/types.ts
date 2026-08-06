@@ -1,4 +1,4 @@
-export interface VehicleType {
+﻿export interface VehicleType {
   id: string
   category: string
   make: string
@@ -52,6 +52,7 @@ export interface Profile {
   email: string | null
   phone: string | null
   role_id: string | null
+  organization_id: string | null
   created_at: string
   updated_at: string
 }

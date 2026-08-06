@@ -1,4 +1,4 @@
-import { supabase } from './supabase'
+﻿import { supabase } from './supabase'
 
 export async function signUp(
   email: string,
@@ -22,7 +22,33 @@ export async function signUp(
   })
 
   if (authError) throw authError
-  if (!authData.user) throw new Error('Signup failed — no user returned.')
+  if (!authData.user) throw new Error('Signup failed - no user returned.')
+
+  const orgName = companyName?.trim() || `${fullName.trim()}'s Organization`
+
+  const { data: orgData, error: orgError } = await supabase
+    .from('organizations')
+    .insert({ name: orgName })
+    .select('id')
+    .single()
+
+  if (orgError) throw orgError
+
+  const { error: profileError } = await supabase
+    .from('profiles')
+    .upsert(
+      {
+        id: authData.user.id,
+        full_name: fullName,
+        email,
+        phone: phone || null,
+        role_id: roleId,
+        organization_id: orgData.id,
+      },
+      { onConflict: 'id' }
+    )
+
+  if (profileError) throw profileError
 
   return authData
 }
@@ -56,6 +82,11 @@ export async function getCurrentProfile() {
 
   if (error) return null
   return data
+}
+
+export async function getCurrentOrganizationId(): Promise<string | null> {
+  const profile = await getCurrentProfile()
+  return profile?.organization_id ?? null
 }
 
 export async function requestPasswordReset(email: string) {
