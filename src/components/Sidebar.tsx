@@ -104,7 +104,7 @@ export default function Sidebar() {
   const pathname = usePathname()
 
   return (
-    <aside className="w-72 shrink-0 border-r border-gray-200 bg-white h-screen sticky top-0 flex flex-col">
+    <aside className="w-72 shrink-0 border-r border-gray-200 bg-white flex flex-col">
       <div className="flex items-center gap-3 px-6 py-5 border-b border-gray-100">
         <div className="w-11 h-11 rounded-xl bg-emerald-100 text-emerald-600 flex items-center justify-center">
           <IconTruck />
@@ -153,3 +153,4 @@ export default function Sidebar() {
     </aside>
   )
 }
+
