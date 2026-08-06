@@ -1,4 +1,4 @@
-'use client'
+﻿'use client'
 
 import { useEffect, useState } from 'react'
 import { getVehicles, createVehicle, deleteVehicle, getVehicleBrands } from '@/lib/vehicles'
@@ -19,6 +19,8 @@ export default function VehiclesPage() {
   const [model, setModel] = useState('')
   const [fleetNumber, setFleetNumber] = useState('')
   const [registrationNumber, setRegistrationNumber] = useState('')
+  const [insuranceExpiry, setInsuranceExpiry] = useState('')
+  const [roadTaxExpiry, setRoadTaxExpiry] = useState('')
 
   async function loadVehicles() {
     setLoading(true)
@@ -76,12 +78,16 @@ export default function VehiclesPage() {
         fleet_number: fleetNumber.trim() || undefined,
         category,
         brand_series: brandSeries,
+        insurance_expiry: insuranceExpiry || undefined,
+        road_tax_expiry: roadTaxExpiry || undefined,
       })
       setBrandId(brands.length > 0 ? brands[0].id : '')
       setCustomMake('')
       setModel('')
       setFleetNumber('')
       setRegistrationNumber('')
+      setInsuranceExpiry('')
+      setRoadTaxExpiry('')
       await loadVehicles()
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to save vehicle')
@@ -102,7 +108,7 @@ export default function VehiclesPage() {
 
   return (
     <div style={{ maxWidth: 800, margin: '2rem auto', fontFamily: 'sans-serif' }}>
-      <h1>FleetOpti — Vehicles</h1>
+      <h1>FleetOpti - Vehicles</h1>
 
       <form onSubmit={handleSubmit} style={{ marginBottom: '2rem', border: '1px solid #ccc', padding: '1rem', borderRadius: 8 }}>
         <h2>Add Vehicle</h2>
@@ -120,7 +126,7 @@ export default function VehiclesPage() {
           <label>Brand{brands.some((b) => b.series) ? ' / Series' : ''}: </label>
           <select value={brandId} onChange={(e) => setBrandId(e.target.value)}>
             {brands.map((b) => (
-              <option key={b.id} value={b.id}>{b.brand}{b.series ? ` — ${b.series}` : ''}</option>
+              <option key={b.id} value={b.id}>{b.brand}{b.series ? ` - ${b.series}` : ''}</option>
             ))}
             <option value="custom">Other / Custom</option>
           </select>
@@ -148,6 +154,16 @@ export default function VehiclesPage() {
           <input value={registrationNumber} onChange={(e) => setRegistrationNumber(e.target.value)} placeholder="e.g. BAT 1234" />
         </div>
 
+        <div style={{ marginBottom: '0.5rem' }}>
+          <label>Insurance expiry (optional): </label>
+          <input type="date" value={insuranceExpiry} onChange={(e) => setInsuranceExpiry(e.target.value)} />
+        </div>
+
+        <div style={{ marginBottom: '0.5rem' }}>
+          <label>Road tax expiry (optional): </label>
+          <input type="date" value={roadTaxExpiry} onChange={(e) => setRoadTaxExpiry(e.target.value)} />
+        </div>
+
         <button type="submit" disabled={saving}>
           {saving ? 'Saving...' : 'Add Vehicle'}
         </button>
@@ -170,6 +186,8 @@ export default function VehiclesPage() {
               <th>Series</th>
               <th>Model</th>
               <th>Reg. No.</th>
+              <th>Insurance</th>
+              <th>Road Tax</th>
               <th>Status</th>
               <th></th>
             </tr>
@@ -183,6 +201,8 @@ export default function VehiclesPage() {
                 <td>{v.brand_series || '-'}</td>
                 <td>{v.model}</td>
                 <td>{v.registration_number}</td>
+                <td>{v.insurance_expiry || '-'}</td>
+                <td>{v.road_tax_expiry || '-'}</td>
                 <td>{v.status}</td>
                 <td>
                   <button onClick={() => handleDelete(v.id)}>Delete</button>
