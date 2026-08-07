@@ -1,7 +1,7 @@
 ﻿'use client'
 
-import { useEffect, useState } from 'react'
-import { getVehicles, createVehicle, deleteVehicle, getVehicleBrands } from '@/lib/vehicles'
+import { useEffect, useMemo, useState } from 'react'
+import { getVehicles, createVehicle, updateVehicle, deleteVehicle, getVehicleBrands } from '@/lib/vehicles'
 import type { Vehicle, VehicleBrand } from '@/lib/types'
 
 const CATEGORIES = ['Small Vehicle', 'Commercial', 'Heavy Duty'] as const
@@ -11,6 +11,9 @@ export default function VehiclesPage() {
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState('')
+  const [search, setSearch] = useState('')
+
+  const [editingId, setEditingId] = useState<string | null>(null)
 
   const [category, setCategory] = useState<string>(CATEGORIES[0])
   const [brands, setBrands] = useState<VehicleBrand[]>([])
@@ -38,7 +41,9 @@ export default function VehiclesPage() {
     try {
       const data = await getVehicleBrands(cat)
       setBrands(data)
-      setBrandId(data.length > 0 ? data[0].id : '')
+      if (!editingId) {
+        setBrandId(data.length > 0 ? data[0].id : '')
+      }
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to load vehicle brands')
     }
@@ -47,13 +52,40 @@ export default function VehiclesPage() {
   useEffect(() => {
     loadVehicles()
     loadBrands(CATEGORIES[0])
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
+
+  function resetForm() {
+    setEditingId(null)
+    setCategory(CATEGORIES[0])
+    setBrandId(brands.length > 0 ? brands[0].id : '')
+    setCustomMake('')
+    setModel('')
+    setFleetNumber('')
+    setRegistrationNumber('')
+    setInsuranceExpiry('')
+    setRoadTaxExpiry('')
+  }
 
   function handleCategoryChange(cat: string) {
     setCategory(cat)
     setBrandId('')
     setCustomMake('')
     loadBrands(cat)
+  }
+
+  function startEdit(v: Vehicle) {
+    setEditingId(v.id)
+    setCategory(v.category || CATEGORIES[0])
+    setModel(v.model)
+    setFleetNumber(v.fleet_number || '')
+    setRegistrationNumber(v.registration_number)
+    setInsuranceExpiry(v.insurance_expiry || '')
+    setRoadTaxExpiry(v.road_tax_expiry || '')
+    setCustomMake(v.make)
+    setBrandId('custom')
+    loadBrands(v.category || CATEGORIES[0])
+    window.scrollTo({ top: 0, behavior: 'smooth' })
   }
 
   async function handleSubmit(e: React.FormEvent) {
@@ -71,23 +103,30 @@ export default function VehiclesPage() {
 
     setSaving(true)
     try {
-      await createVehicle({
-        make,
-        model: model.trim() || '-',
-        registration_number: registrationNumber.trim(),
-        fleet_number: fleetNumber.trim() || undefined,
-        category,
-        brand_series: brandSeries,
-        insurance_expiry: insuranceExpiry || undefined,
-        road_tax_expiry: roadTaxExpiry || undefined,
-      })
-      setBrandId(brands.length > 0 ? brands[0].id : '')
-      setCustomMake('')
-      setModel('')
-      setFleetNumber('')
-      setRegistrationNumber('')
-      setInsuranceExpiry('')
-      setRoadTaxExpiry('')
+      if (editingId) {
+        await updateVehicle(editingId, {
+          make,
+          model: model.trim() || '-',
+          registration_number: registrationNumber.trim(),
+          fleet_number: fleetNumber.trim() || undefined,
+          category,
+          brand_series: brandSeries,
+          insurance_expiry: insuranceExpiry || undefined,
+          road_tax_expiry: roadTaxExpiry || undefined,
+        })
+      } else {
+        await createVehicle({
+          make,
+          model: model.trim() || '-',
+          registration_number: registrationNumber.trim(),
+          fleet_number: fleetNumber.trim() || undefined,
+          category,
+          brand_series: brandSeries,
+          insurance_expiry: insuranceExpiry || undefined,
+          road_tax_expiry: roadTaxExpiry || undefined,
+        })
+      }
+      resetForm()
       await loadVehicles()
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to save vehicle')
@@ -100,18 +139,34 @@ export default function VehiclesPage() {
     if (!confirm('Delete this vehicle?')) return
     try {
       await deleteVehicle(id)
+      if (editingId === id) resetForm()
       await loadVehicles()
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to delete vehicle')
     }
   }
 
+  const filteredVehicles = useMemo(() => {
+    const term = search.trim().toLowerCase()
+    if (!term) return vehicles
+    return vehicles.filter((v) => {
+      return (
+        (v.fleet_number || '').toLowerCase().includes(term) ||
+        v.registration_number.toLowerCase().includes(term) ||
+        v.make.toLowerCase().includes(term) ||
+        v.model.toLowerCase().includes(term) ||
+        (v.category || '').toLowerCase().includes(term) ||
+        (v.brand_series || '').toLowerCase().includes(term)
+      )
+    })
+  }, [vehicles, search])
+
   return (
-    <div style={{ maxWidth: 800, margin: '2rem auto', fontFamily: 'sans-serif' }}>
+    <div style={{ maxWidth: 900, margin: '2rem auto', fontFamily: 'sans-serif' }}>
       <h1>FleetOpti - Vehicles</h1>
 
       <form onSubmit={handleSubmit} style={{ marginBottom: '2rem', border: '1px solid #ccc', padding: '1rem', borderRadius: 8 }}>
-        <h2>Add Vehicle</h2>
+        <h2>{editingId ? 'Edit Vehicle' : 'Add Vehicle'}</h2>
 
         <div style={{ marginBottom: '0.5rem' }}>
           <label>Category: </label>
@@ -165,17 +220,32 @@ export default function VehiclesPage() {
         </div>
 
         <button type="submit" disabled={saving}>
-          {saving ? 'Saving...' : 'Add Vehicle'}
+          {saving ? 'Saving...' : editingId ? 'Save Changes' : 'Add Vehicle'}
         </button>
+        {editingId && (
+          <button type="button" onClick={resetForm} style={{ marginLeft: '0.5rem' }}>
+            Cancel
+          </button>
+        )}
 
         {error && <p style={{ color: 'red' }}>{error}</p>}
       </form>
 
       <h2>Vehicle List</h2>
+
+      <div style={{ marginBottom: '1rem' }}>
+        <input
+          value={search}
+          onChange={(e) => setSearch(e.target.value)}
+          placeholder="Search by fleet #, reg. no, make, model, category..."
+          style={{ width: '100%', padding: '0.5rem', boxSizing: 'border-box' }}
+        />
+      </div>
+
       {loading ? (
         <p>Loading...</p>
-      ) : vehicles.length === 0 ? (
-        <p>No vehicles yet.</p>
+      ) : filteredVehicles.length === 0 ? (
+        <p>{vehicles.length === 0 ? 'No vehicles yet.' : 'No vehicles match your search.'}</p>
       ) : (
         <table style={{ width: '100%', borderCollapse: 'collapse' }}>
           <thead>
@@ -193,8 +263,8 @@ export default function VehiclesPage() {
             </tr>
           </thead>
           <tbody>
-            {vehicles.map((v) => (
-              <tr key={v.id} style={{ borderBottom: '1px solid #eee' }}>
+            {filteredVehicles.map((v) => (
+              <tr key={v.id} style={{ borderBottom: '1px solid #eee', backgroundColor: editingId === v.id ? '#eef6ff' : undefined }}>
                 <td>{v.fleet_number || '-'}</td>
                 <td>{v.category || '-'}</td>
                 <td>{v.make}</td>
@@ -204,7 +274,8 @@ export default function VehiclesPage() {
                 <td>{v.insurance_expiry || '-'}</td>
                 <td>{v.road_tax_expiry || '-'}</td>
                 <td>{v.status}</td>
-                <td>
+                <td style={{ whiteSpace: 'nowrap' }}>
+                  <button onClick={() => startEdit(v)}>Edit</button>{' '}
                   <button onClick={() => handleDelete(v.id)}>Delete</button>
                 </td>
               </tr>
